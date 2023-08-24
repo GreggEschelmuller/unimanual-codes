@@ -25,7 +25,7 @@ ExpBlocks = ["Testing"]
 # ----------- Participant info ----------------
 
 # For clamp and rotation direction
-rot_direction = 1  # 1 for CCW, -1 for CW
+rot_direction = 1  # 1 for forwrad, -1 for backward
 participant = 99
 
 
@@ -92,9 +92,7 @@ target_size = 0.3
 home_size = 0.15
 home_range_size = home_size * 5
 fs = 500
-
-# 0 deg rotation matrix to be used between trials (i.e. finding home)
-no_rot = hf.make_rot_mat(0)
+timeLimit = 2
 
 # Create NI channels
 # Inputs
@@ -145,8 +143,8 @@ target = visual.Rect(
 
 print("Done set up")
 
-# -------------- start practice trial loop ------------------------------------
-# input("Press enter to continue to first block ... ")
+# -------------- start main experiment loop ------------------------------------
+input("Press enter to continue to first block ... ")
 for block in range(len(ExpBlocks)):
     condition = hf.read_trial_data("Trials.xlsx", ExpBlocks[block])
 
@@ -158,13 +156,16 @@ for block in range(len(ExpBlocks)):
     output_task.start()
 
     for i in range(len(condition.trial_num)):
-        # set up params
+        # Creates dictionary for single trial
+        current_trial = copy.deepcopy(template_trial_dict)
+        
+        # set up params loaded from excel
         full_feedback = condition.full_feedback[i]
-        terminal_feedback = condition.terminal_feedback[i]  # Load this from the excel
+        terminal_feedback = condition.terminal_feedback[i]
         vibration = condition.vibration[i]
-        timeLimit = 2
-        trial_type = condition.trial_type[i]
 
+       
+        # Set up vibration output
         if vibration == 0:
             vib_output = [False, False]
         elif vibration == 1:
@@ -174,17 +175,13 @@ for block in range(len(ExpBlocks)):
         elif vibration == 3:
             vib_output = [False, True]
 
-        # Creates dictionary for single trial
-        current_trial = copy.deepcopy(template_trial_dict)
-
         int_cursor.color = None
         int_cursor.draw()
         win.flip()
 
-
         # Sets up target position
         current_target_pos = hf.calc_target_pos(
-            condition.target_pos[i], condition.target_amp[i]
+            0, condition.target_amp[i]
         )
         hf.set_position(current_target_pos, target)
         win.flip()
@@ -208,10 +205,11 @@ for block in range(len(ExpBlocks)):
             hf.set_position(current_pos, int_cursor)
             win.flip()
 
-            # Saves the current position data
-            current_trial = hf.save_position_data(
-                current_trial, int_cursor, current_pos, current_time
-            )
+            # Save position data
+            current_trial["curs_pos"].append(int_cursor.pos[0])
+            current_trial["elbow_pos"].append(current_pos[0])
+            current_trial["time"].append(current_time)
+            
 
     # if current_vel <= 20:
         output_task.write([False, False])
@@ -220,22 +218,23 @@ for block in range(len(ExpBlocks)):
             int_cursor.color = "Green"
             int_cursor.draw()
             win.flip()
-        end_point_data = hf.save_end_point(
-            end_point_data,
-            current_time,
-            current_pos,
-            int_cursor,
-            condition,
-            i,
-        )
-        current_trial = hf.save_end_point(
-            current_trial,
-            current_time,
-            current_pos,
-            int_cursor,
-            condition,
-            i,
-        )
+            
+        # save trial data
+        current_trial["move_times"].append(current_time)
+        current_trial["elbow_end"].append(current_pos[0])
+        current_trial["curs_end"].append(int_cursor.pos[0])
+        current_trial["target_pos"].append(condition.target_pos[i])
+        current_trial["rotation"].append(condition.rotation[i])
+        current_trial["vibration"].append(condition.vibration[i])   
+        
+        # save end point data
+        end_point_data["move_times"].append(current_time)
+        end_point_data["elbow_end"].append(current_pos[0])
+        end_point_data["curs_end"].append(int_cursor.pos[0])
+        end_point_data["target_pos"].append(condition.target_pos[i])
+        end_point_data["rotation"].append(condition.rotation[i])
+        end_point_data["vibration"].append(condition.vibration[i])    
+            
 
         # Leave current window for 200ms
         core.wait(0.2, hogCPUperiod=0.2)
@@ -252,7 +251,7 @@ for block in range(len(ExpBlocks)):
 
 
         # Save current trial as pkl
-        with open(file_path + "_practice_trial_" + str(i) + ".pkl", "wb") as f:
+        with open(file_path + "_"+ file_ext + "_trial_" + str(i+1) + ".pkl", "wb") as f:
             pickle.dump(current_trial, f)
         del current_trial
 
@@ -271,7 +270,7 @@ for block in range(len(ExpBlocks)):
     del output, end_point_data, condition
     input_task.stop()
     output_task.stop()
-    # input("Press enter to continue to next block ... ")
+    input("Press enter to continue to next block ... ")
 
 input_task.close()
 output_task.close()
