@@ -10,7 +10,10 @@ import os
 import nidaqmx
 
 # To Do:
-# 1. change saving to CSV instead of pickle for flexibility
+# 1. Save trial information and end point data to CSV at the end of each trial
+# 2. Save position and time information to CSV at end of each trial
+# 3. Save all trail information to one CSV at end of each block
+# 4. add in visual perturbations (clamp and offset)
 
 # ------------------Blocks to run ------------------
 # Use this to run whole protocol
@@ -44,6 +47,8 @@ study_info = {
     "Study ID": study_id,
     "Experimenter": experimenter,
 }
+experiment_info = pd.DataFrame(study_info)
+
 if not participant == 99:
     print(study_info)
     input(
@@ -80,10 +85,7 @@ if not participant == 99:
 
 # set up file path
 file_path = "data/P" + str(participant) + "/participant_" + str(participant)
-
-# saves study information
-with open(file_path + "_studyinfo.pkl", "wb") as f:
-    pickle.dump(study_info, f)
+experiment_info.to_csv(file_path + "_studyinfo.csv")
 
 print("Setting everything up...")
 
@@ -112,12 +114,8 @@ output_task.do_channels.add_do_chan("Dev1/port0/line0")
 output_task.do_channels.add_do_chan("Dev1/port0/line1")
 
 
-# Load data structs
-with open("template_data_dict.pkl", "rb") as f:
-    template_data_dict = pickle.load(f)
-
-with open("template_trial_dict.pkl", "rb") as f:
-    template_trial_dict = pickle.load(f)
+# Create data structs
+# For single trial
 
 ## Psychopy set up
 # Create window
@@ -141,8 +139,27 @@ int_cursor = visual.Rect(
 )
 
 target = visual.Rect(
-    win, width=hf.cm_to_pixel(target_size), height=hf.cm_to_pixel(20), lineColor="red", fillColor=None
-)  
+    win,
+    width=hf.cm_to_pixel(target_size),
+    height=hf.cm_to_pixel(20),
+    lineColor="red",
+    fillColor=None,
+)
+
+# Data dicts for storing data
+trial_summary_data = {
+    "trial_num": [],
+    "move_times": [],
+    "elbow_end": [],
+    "curs_end": [],
+    "block": [],
+}
+
+# For online position data
+position_data = {
+    "elbow_pos": [],
+    "time": [],
+}
 
 print("Done set up")
 
@@ -152,7 +169,7 @@ for block in range(len(ExpBlocks)):
     condition = hf.read_trial_data("Trials.xlsx", ExpBlocks[block])
 
     # Summary data dictionaries for this block
-    end_point_data = copy.deepcopy(template_data_dict)
+    block_data = copy.deepcopy(trial_summary_data)
 
     # starts NI DAQ task for data collection and output
     input_task.start()
@@ -160,22 +177,17 @@ for block in range(len(ExpBlocks)):
 
     for i in range(len(condition.trial_num)):
         # Creates dictionary for single trial
-        current_trial = copy.deepcopy(template_trial_dict)
-        
-        # set up params loaded from excel
-        full_feedback = condition.full_feedback[i]
-        terminal_feedback = condition.terminal_feedback[i]
-        vibration = condition.vibration[i]
+        current_trial = copy.deepcopy(trial_summary_data)
+        position_data = copy.deepcopy(position_data)
 
-       
         # Set up vibration output
-        if vibration == 0:
+        if condition.vibration[i] == 0:
             vib_output = [False, False]
-        elif vibration == 1:
+        elif condition.vibration[i] == 1:
             vib_output = [True, True]
-        elif vibration == 2:
+        elif condition.vibration[i] == 2:
             vib_output = [True, False]
-        elif vibration == 3:
+        elif condition.vibration[i] == 3:
             vib_output = [False, True]
 
         int_cursor.color = None
@@ -183,17 +195,14 @@ for block in range(len(ExpBlocks)):
         win.flip()
 
         # Sets up target position
-        current_target_pos = hf.calc_target_pos(
-            0, condition.target_amp[i]
-        )
+        current_target_pos = hf.calc_target_pos(0, condition.target_amp[i])
         hf.set_position(current_target_pos, target)
         win.flip()
 
-    
         # Run trial
         input(f"Press enter to start trial # {i+1} ... ")
 
-        if not full_feedback:
+        if not condition.full_feedback[i]:
             int_cursor.color = None
 
         output_task.write(vib_output)
@@ -209,35 +218,16 @@ for block in range(len(ExpBlocks)):
             win.flip()
 
             # Save position data
-            current_trial["curs_pos"].append(int_cursor.pos[0])
-            current_trial["elbow_pos"].append(current_pos[0])
-            current_trial["time"].append(current_time)
-            
+            position_data["elbow_pos"].append(current_pos[0])
+            position_data["time"].append(current_time)
 
-    # if current_vel <= 20:
+        # if current_vel <= 20:
         output_task.write([False, False])
         # Append trial data to storage variables
-        if terminal_feedback:
+        if condition.terminal_feedback[i]:
             int_cursor.color = "Green"
             int_cursor.draw()
             win.flip()
-            
-        # save trial data
-        current_trial["move_times"].append(current_time)
-        current_trial["elbow_end"].append(current_pos[0])
-        current_trial["curs_end"].append(int_cursor.pos[0])
-        current_trial["target_pos"].append(condition.target_pos[i])
-        current_trial["rotation"].append(condition.rotation[i])
-        current_trial["vibration"].append(condition.vibration[i])   
-        
-        # save end point data
-        end_point_data["move_times"].append(current_time)
-        end_point_data["elbow_end"].append(current_pos[0])
-        end_point_data["curs_end"].append(int_cursor.pos[0])
-        end_point_data["target_pos"].append(condition.target_pos[i])
-        end_point_data["rotation"].append(condition.rotation[i])
-        end_point_data["vibration"].append(condition.vibration[i])    
-            
 
         # Leave current window for 200ms
         core.wait(0.2, hogCPUperiod=0.2)
@@ -252,25 +242,46 @@ for block in range(len(ExpBlocks)):
             f"Target position: {condition.target_amp[i]}     Cursor Position: {round(hf.pixel_to_cm(int_cursor.pos[0]),3)}"
         )
 
+        # append trial file
+        current_trial["move_times"].append(current_time)
+        current_trial["elbow_end"].append(current_pos[0])
+        current_trial["curs_end"].append(int_cursor.pos[0])
+        current_trial["trial_num"].append(i + 1)
+        current_trial["block"].append(ExpBlocks[block])
 
-        # Save current trial as pkl
-        with open(file_path + "_"+ file_ext + "_trial_" + str(i+1) + ".pkl", "wb") as f:
-            pickle.dump(current_trial, f)
-        del current_trial
+        # append block data
+        block_data["move_times"].append(current_time)
+        block_data["elbow_end"].append(current_pos[0])
+        block_data["curs_end"].append(int_cursor.pos[0])
+        block_data["trial_num"].append(i + 1)
+        block_data["block"].append(ExpBlocks[block])
 
+        # Sace data
+        pd.DataFrame.from_dict(current_trial).to_csv(
+            file_path + "_trial_" + str(i + 1) + ".csv", index=False
+        )
+        pd.DataFrame.from_dict(position_data).to_csv(
+            file_path + "_position_" + str(i + 1) + ".csv", index=False
+        )
+
+        # append trial file to block file
+
+        del current_trial, position_data
+
+    # End of bock saving
     print("Saving Data")
-    # Save dict to excel as a backup
-    file_ext = ExpBlocks[block]
-    output = pd.DataFrame.from_dict(end_point_data)
-    output["error"] = output["target_pos"] - output["elbow_end"]
-    output.to_excel(file_path + file_ext + ".xlsx")
+    trial_data = pd.merge(
+        pd.dataframe.from_dict(block_data),
+        pd.dataframe.from_dict(condition),
+        on="trial_num",
+    )
 
-    # Save dict to pickle
-    with open(file_path + "_" + file_ext + ".pkl", "wb") as f:
-        pickle.dump(end_point_data, f)
+    file_ext = ExpBlocks[block]
+    trial_data.to_csv(file_path + "_" + file_ext, index=False)
+
     print("Data Succesfully Saved")
 
-    del output, end_point_data, condition
+    del (condition,)
     input_task.stop()
     output_task.stop()
     input("Press enter to continue to next block ... ")
