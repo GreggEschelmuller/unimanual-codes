@@ -9,6 +9,9 @@ import copy
 import os
 import nidaqmx
 
+# To Do:
+# 1. change saving to CSV instead of pickle for flexibility
+
 # ------------------Blocks to run ------------------
 # Use this to run whole protocol
 # make sure the strings match the names of the sheets in the excel
