@@ -10,10 +10,7 @@ import os
 import nidaqmx
 
 # To Do:
-# 1. Save trial information and end point data to CSV at the end of each trial
-# 2. Save position and time information to CSV at end of each trial
-# 3. Save all trail information to one CSV at end of each block
-# 4. add in visual perturbations (clamp and offset)
+# 1. add in visual perturbations (clamp and offset)
 
 # ------------------Blocks to run ------------------
 # Use this to run whole protocol
@@ -281,7 +278,7 @@ for block in range(len(ExpBlocks)):
 
     print("Data Succesfully Saved")
 
-    del (condition,)
+    del condition, trial_data, block_data, current_trial
     input_task.stop()
     output_task.stop()
     input("Press enter to continue to next block ... ")
