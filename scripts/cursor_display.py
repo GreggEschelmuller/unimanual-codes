@@ -26,9 +26,9 @@ win = visual.Window(
     fullscr=True,
 )
 
-int_cursor = visual.Circle(
-    win, radius=hf.cm_to_pixel(cursor_size), fillColor="white"
-) 
+int_cursor = visual.Rect(
+    win, width=hf.cm_to_pixel(cursor_size), height=hf.cm_to_pixel(20), fillColor="green"
+)
 
 input_task.start()
 

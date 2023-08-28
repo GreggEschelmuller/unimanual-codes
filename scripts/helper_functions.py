@@ -66,7 +66,7 @@ def get_x(task):
                 # Cursor calibration - August 17, 2023
                 x *= -2181.8
                 # x += 5803.6
-                x += 5605
+                x += 5530
 
                 y *= 1
                 return [x, 0]

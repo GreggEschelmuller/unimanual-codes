@@ -44,7 +44,7 @@ study_info = {
     "Study ID": study_id,
     "Experimenter": experimenter,
 }
-experiment_info = pd.DataFrame(study_info)
+# experiment_info = pd.DataFrame.from_dict(study_info)
 
 if not participant == 99:
     print(study_info)
@@ -82,7 +82,7 @@ if not participant == 99:
 
 # set up file path
 file_path = "data/P" + str(participant) + "/participant_" + str(participant)
-experiment_info.to_csv(file_path + "_studyinfo.csv")
+# experiment_info.to_csv(file_path + "_studyinfo.csv")
 
 print("Setting everything up...")
 
@@ -144,16 +144,17 @@ target = visual.Rect(
 )
 
 # Data dicts for storing data
-trial_summary_data = {
+trial_summary_data_template = {
     "trial_num": [],
     "move_times": [],
     "elbow_end": [],
     "curs_end": [],
+    "error": [],
     "block": [],
 }
 
 # For online position data
-position_data = {
+position_data_template = {
     "elbow_pos": [],
     "time": [],
 }
@@ -166,7 +167,7 @@ for block in range(len(ExpBlocks)):
     condition = hf.read_trial_data("Trials.xlsx", ExpBlocks[block])
 
     # Summary data dictionaries for this block
-    block_data = copy.deepcopy(trial_summary_data)
+    block_data = copy.deepcopy(trial_summary_data_template)
 
     # starts NI DAQ task for data collection and output
     input_task.start()
@@ -174,8 +175,8 @@ for block in range(len(ExpBlocks)):
 
     for i in range(len(condition.trial_num)):
         # Creates dictionary for single trial
-        current_trial = copy.deepcopy(trial_summary_data)
-        position_data = copy.deepcopy(position_data)
+        current_trial = copy.deepcopy(trial_summary_data_template)
+        position_data = copy.deepcopy(position_data_template)
 
         # Set up vibration output
         if condition.vibration[i] == 0:
@@ -192,7 +193,8 @@ for block in range(len(ExpBlocks)):
         win.flip()
 
         # Sets up target position
-        current_target_pos = hf.calc_target_pos(0, condition.target_amp[i])
+        target_jitter = np.random.uniform(-0.25, 0.25) # jitter target position
+        current_target_pos = hf.calc_target_pos(0, condition.target_amp[i] + target_jitter)
         hf.set_position(current_target_pos, target)
         win.flip()
 
@@ -238,22 +240,30 @@ for block in range(len(ExpBlocks)):
         print(
             f"Target position: {condition.target_amp[i]}     Cursor Position: {round(hf.pixel_to_cm(int_cursor.pos[0]),3)}"
         )
+        print(f"Error: {round((hf.pixel_to_cm(int_cursor.pos[0]) - condition.target_amp[i]),3)}")
+        print(" ")
 
         # append trial file
         current_trial["move_times"].append(current_time)
-        current_trial["elbow_end"].append(current_pos[0])
-        current_trial["curs_end"].append(int_cursor.pos[0])
+        current_trial["elbow_end"].append(hf.pixel_to_cm(current_pos[0]))
+        current_trial["curs_end"].append(hf.pixel_to_cm(int_cursor.pos[0]))
+        current_trial["error"].append(
+            hf.pixel_to_cm(int_cursor.pos[0]) - condition.target_amp[i]
+        )
         current_trial["trial_num"].append(i + 1)
         current_trial["block"].append(ExpBlocks[block])
 
         # append block data
         block_data["move_times"].append(current_time)
-        block_data["elbow_end"].append(current_pos[0])
-        block_data["curs_end"].append(int_cursor.pos[0])
+        block_data["elbow_end"].append(hf.pixel_to_cm(current_pos[0]))
+        block_data["curs_end"].append(hf.pixel_to_cm(int_cursor.pos[0]))
+        block_data["error"].append(
+            hf.pixel_to_cm(int_cursor.pos[0]) - condition.target_amp[i]
+        )
         block_data["trial_num"].append(i + 1)
         block_data["block"].append(ExpBlocks[block])
 
-        # Sace data
+        # Save data yo csv
         pd.DataFrame.from_dict(current_trial).to_csv(
             file_path + "_trial_" + str(i + 1) + ".csv", index=False
         )
@@ -261,6 +271,13 @@ for block in range(len(ExpBlocks)):
             file_path + "_position_" + str(i + 1) + ".csv", index=False
         )
 
+        # save data to excel
+        pd.DataFrame.from_dict(current_trial).to_excel(
+            file_path + "_trial_" + str(i + 1) + ".xlsx", index=False
+        )
+        pd.DataFrame.from_dict(position_data).to_excel(
+            file_path + "_position_" + str(i + 1) + ".xlsx", index=False
+        )
         # append trial file to block file
 
         del current_trial, position_data
@@ -268,17 +285,18 @@ for block in range(len(ExpBlocks)):
     # End of bock saving
     print("Saving Data")
     trial_data = pd.merge(
-        pd.dataframe.from_dict(block_data),
-        pd.dataframe.from_dict(condition),
+        pd.DataFrame.from_dict(block_data),
+        pd.DataFrame.from_dict(condition),
         on="trial_num",
     )
 
     file_ext = ExpBlocks[block]
-    trial_data.to_csv(file_path + "_" + file_ext, index=False)
+    trial_data.to_csv(file_path + "_" + file_ext + ".csv", index=False)
+    trial_data.to_excel(file_path + "_" + file_ext + ".xlsx", index=False)
 
     print("Data Succesfully Saved")
 
-    del condition, trial_data, block_data, current_trial
+    del condition, trial_data, block_data
     input_task.stop()
     output_task.stop()
     input("Press enter to continue to next block ... ")
