@@ -29,20 +29,27 @@ turn_off = [False, False]
 timer = core.Clock()
 
 timer.reset()
-while timer < 3:
+while timer.getTime() < 3:
     output_task.write(output1)
 
 output_task.write(turn_off)
+print("Output 1 off")
 
-while timer < 3:
+timer.reset()
+while timer.getTime() < 3:
     output_task.write(output2)
 
 output_task.write(turn_off)
+print("Output 2 off")
 
-while timer < 3:
+timer.reset()
+while timer.getTime() < 3:
     output_task.write(output3)
 
 output_task.write(turn_off)
+print("Output 3 off")
 
 output_task.stop()
 output_task.close()
+input_task.close()
+print("All done")
