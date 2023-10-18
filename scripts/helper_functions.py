@@ -61,12 +61,11 @@ def get_x(task):
                 # Offset cursor to middle position
                 # x = 5 - (x_data[0] + 2.7)
                 x = x_data[0]
-                y = y_data[0] - 2.2
+                y = y_data[0] - 2.3
 
-                # Cursor calibration - August 17, 2023
-                x *= -2181.8
-                # x += 5803.6
-                x += 5530
+                # Cursor calibration - October 18, 2023
+                x *= -2075
+                x += 4881.2
 
                 y *= 1
                 return [x, 0]

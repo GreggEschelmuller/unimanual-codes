@@ -130,9 +130,13 @@ win = visual.Window(
 # set up clocks
 move_clock = core.Clock()
 home_clock = core.Clock()
+trial_delay_clock = core.Clock()
 
 int_cursor = visual.Rect(
-    win, width=hf.cm_to_pixel(cursor_size), height=hf.cm_to_pixel(20), fillColor="Black"
+    win, 
+    width=hf.cm_to_pixel(cursor_size),
+    height=hf.cm_to_pixel(20), 
+    fillColor="Black"
 )
 
 target = visual.Rect(
@@ -151,6 +155,7 @@ trial_summary_data_template = {
     "curs_end": [],
     "error": [],
     "block": [],
+    'trial_delay': [],
 }
 
 # For online position data
@@ -195,16 +200,29 @@ for block in range(len(ExpBlocks)):
         # Sets up target position
         target_jitter = np.random.uniform(-0.25, 0.25) # jitter target position
         current_target_pos = hf.calc_target_pos(0, condition.target_amp[i] + target_jitter)
-        hf.set_position(current_target_pos, target)
-        win.flip()
 
         # Run trial
         input(f"Press enter to start trial # {i+1} ... ")
+        rand_wait = np.random.randint(300, 701)
+        current_trial['trial_delay'].append(rand_wait/1000)
+        block_data['trial_delay'].append(rand_wait/1000)
+        trial_delay_clock.reset()
+        while trial_delay_clock.getTime() < rand_wait/1000:
+            current_time = trial_delay_clock.getTime()
+            current_pos = hf.get_x(input_task)
+            position_data["elbow_pos"].append(current_pos[0])
+            position_data["time"].append(current_time)
+
 
         if not condition.full_feedback[i]:
             int_cursor.color = None
 
+        # Start vibration
         output_task.write(vib_output)
+
+        # Display target position
+        hf.set_position(current_target_pos, target)
+        win.flip()
 
         # run trial until time limit is reached or target is reached
         move_clock.reset()
@@ -226,6 +244,7 @@ for block in range(len(ExpBlocks)):
         if condition.terminal_feedback[i]:
             int_cursor.color = "Green"
             int_cursor.draw()
+            target.draw()
             win.flip()
 
         # Leave current window for 200ms

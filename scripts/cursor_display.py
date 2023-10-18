@@ -24,6 +24,7 @@ win = visual.Window(
     waitBlanking=False,
     screen=1,
     fullscr=True,
+    size=(1920, 1080)
 )
 
 int_cursor = visual.Rect(
