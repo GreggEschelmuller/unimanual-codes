@@ -55,7 +55,7 @@ if not participant == 99:
     )
 
 # # Check if directory exists and if it is empty
-dir_path = "data/P" + str(participant)
+dir_path = f"data/p{str(participant)}"
 
 if not participant == 99:
     if not os.path.exists(dir_path):
@@ -80,9 +80,8 @@ if not participant == 99:
         exit()
 
 # set up file path
-file_path = "data/P" + str(participant) + "/participant_" + str(participant)
-# experiment_info.to_csv(file_path + "_studyinfo.csv")
-
+file_path = f"data/p{str(participant)}/p{str(participant)}"
+pd.DataFrame.from_dict(study_info).to_csv(f"{file_path}_study_information.csv")
 print("Setting everything up...")
 
 # ------------------------ Set up --------------------------------
@@ -155,6 +154,7 @@ trial_summary_data_template = {
     "error": [],
     "block": [],
     "trial_delay": [],
+    "target": [],
 }
 
 # For online position data
@@ -169,6 +169,7 @@ print("Done set up")
 input("Press enter to continue to first block ... ")
 for block in range(len(ExpBlocks)):
     condition = lib.read_trial_data("Trials.xlsx", ExpBlocks[block])
+    file_ext = ExpBlocks[block]
 
     # Summary data dictionaries for this block
     block_data = copy.deepcopy(trial_summary_data_template)
@@ -198,9 +199,8 @@ for block in range(len(ExpBlocks)):
 
         # Sets up target position
         target_jitter = np.random.uniform(-0.25, 0.25)  # jitter target position
-        current_target_pos = lib.calc_target_pos(
-            0, condition.target_amp[i] + target_jitter
-        )
+        target_amplitude = condition.target_amp[i] + target_jitter
+        current_target_pos = lib.calc_target_pos(0, target_amplitude)
 
         # Run trial
         input(f"Press enter to start trial # {i+1} ... ")
@@ -264,7 +264,7 @@ for block in range(len(ExpBlocks)):
         )
         print(" ")
 
-        # append trial file
+        # Write and save data for individual trial
         current_trial["move_times"].append(current_time)
         current_trial["elbow_end"].append(lib.pixel_to_cm(current_pos[0]))
         current_trial["curs_end"].append(lib.pixel_to_cm(int_cursor.pos[0]))
@@ -273,8 +273,17 @@ for block in range(len(ExpBlocks)):
         )
         current_trial["trial_num"].append(i + 1)
         current_trial["block"].append(ExpBlocks[block])
+        current_trial["target"].append(target_amplitude)
 
-        # append block data
+        # Save data to CSV
+        pd.DataFrame.from_dict(current_trial).to_csv(
+            f"{file_path}_trial_{str(i+1)}_{file_ext}.csv", index=False
+        )
+        pd.DataFrame.from_dict(position_data).to_csv(
+            f"{file_path}_position_{str(i+1)}_{file_ext}.csv", index=False
+        )
+
+        # Append data for whole block
         block_data["move_times"].append(current_time)
         block_data["elbow_end"].append(lib.pixel_to_cm(current_pos[0]))
         block_data["curs_end"].append(lib.pixel_to_cm(int_cursor.pos[0]))
@@ -283,23 +292,7 @@ for block in range(len(ExpBlocks)):
         )
         block_data["trial_num"].append(i + 1)
         block_data["block"].append(ExpBlocks[block])
-
-        # Save data yo csv
-        pd.DataFrame.from_dict(current_trial).to_csv(
-            file_path + "_trial_" + str(i + 1) + ".csv", index=False
-        )
-        pd.DataFrame.from_dict(position_data).to_csv(
-            file_path + "_position_" + str(i + 1) + ".csv", index=False
-        )
-
-        # save data to excel
-        pd.DataFrame.from_dict(current_trial).to_excel(
-            file_path + "_trial_" + str(i + 1) + ".xlsx", index=False
-        )
-        pd.DataFrame.from_dict(position_data).to_excel(
-            file_path + "_position_" + str(i + 1) + ".xlsx", index=False
-        )
-        # append trial file to block file
+        block_data["target"].append(target_amplitude)
 
         del current_trial, position_data
 
@@ -311,7 +304,6 @@ for block in range(len(ExpBlocks)):
         on="trial_num",
     )
 
-    file_ext = ExpBlocks[block]
     trial_data.to_csv(file_path + "_" + file_ext + ".csv", index=False)
     trial_data.to_excel(file_path + "_" + file_ext + ".xlsx", index=False)
 
