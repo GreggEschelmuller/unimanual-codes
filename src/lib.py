@@ -61,11 +61,12 @@ def get_x(task):
                 # Offset cursor to middle position
                 # x = 5 - (x_data[0] + 2.7)
                 x = x_data[0]
+                # print(f"Volatage is {x}")
                 y = y_data[0] - 2.3
 
                 # Cursor calibration - October 18, 2023
-                x *= -2075
-                x += 4881.2
+                x *= -1997.4
+                x += 4733.8
 
                 y *= 1
                 return [x, 0]

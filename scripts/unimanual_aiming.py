@@ -10,19 +10,20 @@ import nidaqmx
 
 # To Do:
 # 1. add in visual perturbations (clamp and offset)
+# 2. add code to test vibrations before experiment
 
 # ------------------Blocks to run ------------------
 # Use this to run whole protocol
 # make sure the strings match the names of the sheets in the excel
 # ExpBlocks = [
 #     "Practice",
-#     "Baseline",
+#     "Baseline", 
 #     "Exposure",
 #     "Post"
 #     ]
 
 # For testing a few trials
-ExpBlocks = ["Testing"]
+ExpBlocks = ["Baseline"]
 
 # ----------- Participant info ----------------
 
@@ -81,7 +82,7 @@ if not participant == 99:
 
 # set up file path
 file_path = f"data/p{str(participant)}/p{str(participant)}"
-pd.DataFrame.from_dict(study_info).to_csv(f"{file_path}_study_information.csv")
+# pd.DataFrame.from_dict(study_info).to_csv(f"{file_path}_study_information.csv")
 print("Setting everything up...")
 
 # ------------------------ Set up --------------------------------
@@ -189,9 +190,9 @@ for block in range(len(ExpBlocks)):
         elif condition.vibration[i] == 1:
             vib_output = [True, True]
         elif condition.vibration[i] == 2:
-            vib_output = [True, False]
+            vib_output = [True, False] # BICEPS
         elif condition.vibration[i] == 3:
-            vib_output = [False, True]
+            vib_output = [False, True] # TRICEPS
 
         int_cursor.color = None
         int_cursor.draw()
