@@ -2,8 +2,7 @@
 from psychopy import visual, core
 import numpy as np
 import pandas as pd
-import helper_functions as hf
-import pickle
+import src.lib as lib
 from datetime import datetime
 import copy
 import os
@@ -133,16 +132,16 @@ home_clock = core.Clock()
 trial_delay_clock = core.Clock()
 
 int_cursor = visual.Rect(
-    win, 
-    width=hf.cm_to_pixel(cursor_size),
-    height=hf.cm_to_pixel(20), 
-    fillColor="Black"
+    win,
+    width=lib.cm_to_pixel(cursor_size),
+    height=lib.cm_to_pixel(20),
+    fillColor="Black",
 )
 
 target = visual.Rect(
     win,
-    width=hf.cm_to_pixel(target_size),
-    height=hf.cm_to_pixel(20),
+    width=lib.cm_to_pixel(target_size),
+    height=lib.cm_to_pixel(20),
     lineColor="red",
     fillColor=None,
 )
@@ -155,7 +154,7 @@ trial_summary_data_template = {
     "curs_end": [],
     "error": [],
     "block": [],
-    'trial_delay': [],
+    "trial_delay": [],
 }
 
 # For online position data
@@ -169,7 +168,7 @@ print("Done set up")
 # -------------- start main experiment loop ------------------------------------
 input("Press enter to continue to first block ... ")
 for block in range(len(ExpBlocks)):
-    condition = hf.read_trial_data("Trials.xlsx", ExpBlocks[block])
+    condition = lib.read_trial_data("Trials.xlsx", ExpBlocks[block])
 
     # Summary data dictionaries for this block
     block_data = copy.deepcopy(trial_summary_data_template)
@@ -198,21 +197,22 @@ for block in range(len(ExpBlocks)):
         win.flip()
 
         # Sets up target position
-        target_jitter = np.random.uniform(-0.25, 0.25) # jitter target position
-        current_target_pos = hf.calc_target_pos(0, condition.target_amp[i] + target_jitter)
+        target_jitter = np.random.uniform(-0.25, 0.25)  # jitter target position
+        current_target_pos = lib.calc_target_pos(
+            0, condition.target_amp[i] + target_jitter
+        )
 
         # Run trial
         input(f"Press enter to start trial # {i+1} ... ")
         rand_wait = np.random.randint(300, 701)
-        current_trial['trial_delay'].append(rand_wait/1000)
-        block_data['trial_delay'].append(rand_wait/1000)
+        current_trial["trial_delay"].append(rand_wait / 1000)
+        block_data["trial_delay"].append(rand_wait / 1000)
         trial_delay_clock.reset()
-        while trial_delay_clock.getTime() < rand_wait/1000:
+        while trial_delay_clock.getTime() < rand_wait / 1000:
             current_time = trial_delay_clock.getTime()
-            current_pos = hf.get_x(input_task)
+            current_pos = lib.get_x(input_task)
             position_data["elbow_pos"].append(current_pos[0])
             position_data["time"].append(current_time)
-
 
         if not condition.full_feedback[i]:
             int_cursor.color = None
@@ -221,7 +221,7 @@ for block in range(len(ExpBlocks)):
         output_task.write(vib_output)
 
         # Display target position
-        hf.set_position(current_target_pos, target)
+        lib.set_position(current_target_pos, target)
         win.flip()
 
         # run trial until time limit is reached or target is reached
@@ -229,9 +229,9 @@ for block in range(len(ExpBlocks)):
         while move_clock.getTime() < timeLimit:
             # Run trial
             current_time = move_clock.getTime()
-            current_pos = hf.get_x(input_task)
+            current_pos = lib.get_x(input_task)
             target.draw()
-            hf.set_position(current_pos, int_cursor)
+            lib.set_position(current_pos, int_cursor)
             win.flip()
 
             # Save position data
@@ -257,27 +257,29 @@ for block in range(len(ExpBlocks)):
         print(f"Trial {i+1} done.")
         print(f"Movement time: {round((current_time*1000),1)} ms")
         print(
-            f"Target position: {condition.target_amp[i]}     Cursor Position: {round(hf.pixel_to_cm(int_cursor.pos[0]),3)}"
+            f"Target position: {condition.target_amp[i]}     Cursor Position: {round(lib.pixel_to_cm(int_cursor.pos[0]),3)}"
         )
-        print(f"Error: {round((hf.pixel_to_cm(int_cursor.pos[0]) - condition.target_amp[i]),3)}")
+        print(
+            f"Error: {round((lib.pixel_to_cm(int_cursor.pos[0]) - condition.target_amp[i]),3)}"
+        )
         print(" ")
 
         # append trial file
         current_trial["move_times"].append(current_time)
-        current_trial["elbow_end"].append(hf.pixel_to_cm(current_pos[0]))
-        current_trial["curs_end"].append(hf.pixel_to_cm(int_cursor.pos[0]))
+        current_trial["elbow_end"].append(lib.pixel_to_cm(current_pos[0]))
+        current_trial["curs_end"].append(lib.pixel_to_cm(int_cursor.pos[0]))
         current_trial["error"].append(
-            hf.pixel_to_cm(int_cursor.pos[0]) - condition.target_amp[i]
+            lib.pixel_to_cm(int_cursor.pos[0]) - condition.target_amp[i]
         )
         current_trial["trial_num"].append(i + 1)
         current_trial["block"].append(ExpBlocks[block])
 
         # append block data
         block_data["move_times"].append(current_time)
-        block_data["elbow_end"].append(hf.pixel_to_cm(current_pos[0]))
-        block_data["curs_end"].append(hf.pixel_to_cm(int_cursor.pos[0]))
+        block_data["elbow_end"].append(lib.pixel_to_cm(current_pos[0]))
+        block_data["curs_end"].append(lib.pixel_to_cm(int_cursor.pos[0]))
         block_data["error"].append(
-            hf.pixel_to_cm(int_cursor.pos[0]) - condition.target_amp[i]
+            lib.pixel_to_cm(int_cursor.pos[0]) - condition.target_amp[i]
         )
         block_data["trial_num"].append(i + 1)
         block_data["block"].append(ExpBlocks[block])
